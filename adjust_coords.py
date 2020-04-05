@@ -52,7 +52,7 @@ def orient_function(q, X, direction):
     return err
 
 def orient(X,direction=[0,0,1]):
-    print "Orienting", len(X)
+    print("Orienting", len(X))
     q0 = np.array([1,0,0,0])
     res = minimize(orient_function, q0,args=(X,direction),
                    method = 'Nelder-Mead')
@@ -66,7 +66,7 @@ def align_function(q, Y, X):
     return err_align + 10*err_orient
 
 def align(Y,X):
-    print "Aligning", len(Y), len(X)
+    print("Aligning", len(Y), len(X))
     q0 = np.array([1,0,0,0])
     res = minimize(align_function,q0,args=(Y,X),method = 'Nelder-Mead')
     q = res.x
@@ -88,7 +88,7 @@ if __name__ == "__main__":
     X = C[3]
 
     from scipy.spatial.distance import cdist
-    print cdist(X,X,metric='cosine')
+    print(cdist(X,X,metric='cosine'))
 
     #print cdist([[1,0,0]],[[-1,0,0]],metric='cosine')
 

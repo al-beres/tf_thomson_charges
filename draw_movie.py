@@ -93,7 +93,7 @@ def plot_sphere(
                         alpha=0.6, linewidth=0)
         
 
-    ax.set_aspect('equal')
+    #ax.set_aspect('equal')
     ax.set_axis_off()
     plt.tight_layout()
     return ax
@@ -139,7 +139,7 @@ if __name__ == "__main__":
         plt.draw()
         plt.pause(.00005)
         if FLAG_SAVEFIG:
-            plt.savefig('movies/{}/{:06}.png'.format(name,fignum.next()))
+            plt.savefig('movies/{}/{:06}.png'.format(name,next(fignum)))
 
     A = np.linspace(360/2.0,360,frames)
     for dist,a in zip(D,A):
@@ -149,7 +149,7 @@ if __name__ == "__main__":
         plt.draw()
         plt.pause(.00005)
         if FLAG_SAVEFIG:
-            plt.savefig('movies/{}/{:06}.png'.format(name,fignum.next()))
+            plt.savefig('movies/{}/{:06}.png'.format(name,next(fignum)))
     plt.show()
 
     

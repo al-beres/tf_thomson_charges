@@ -14,6 +14,8 @@ from tqdm import tqdm
 from scipy.spatial.distance import pdist
 import pandas as pd
 
+tf.compat.v1.disable_eager_execution()
+
 '''
 Runs the tf model for the Thomson problem. Starts at N=2 and minimizes
 in order. Saves best configurations to "configurations.h5". If a known 
@@ -26,19 +28,19 @@ f_h5 = 'configurations.h5'
 
 
 def thompson_model(N):
-    tf.reset_default_graph()
+    tf.compat.v1.reset_default_graph()
 
     # Start with random coordinates from a normal dist
     r0 = np.random.normal(size=[N,3])
     coord = tf.Variable(r0, name='coordinates')
 
     # Normalize the coordinates onto the unit sphere
-    coord = coord/tf.reshape(tf.norm(coord,axis=1),(-1,1))
+    coord = coord/tf.reshape(tf.norm(tensor=coord,axis=1),(-1,1))
 
     def squared_diff(A):
-        r = tf.reduce_sum(A*A, 1)
+        r = tf.reduce_sum(input_tensor=A*A, axis=1)
         r = tf.reshape(r, [-1, 1])
-        return r - 2*tf.matmul(A, tf.transpose(A)) + tf.transpose(r)
+        return r - 2*tf.matmul(A, tf.transpose(a=A)) + tf.transpose(a=r)
 
     RR = squared_diff(coord)
 
@@ -46,10 +48,10 @@ def thompson_model(N):
     # matrix, only the upper right half
     mask = np.triu(np.ones((N, N), dtype=np.bool_), 1)
 
-    R = tf.sqrt(tf.boolean_mask(RR, mask))
+    R = tf.sqrt(tf.boolean_mask(tensor=RR, mask=mask))
 
     # Electostatic potential up to a constant, 1/r
-    U = tf.reduce_sum(1/R)
+    U = tf.reduce_sum(input_tensor=1/R)
 
     return U, coord
 
@@ -61,16 +63,16 @@ def minimize_thompson(N, reported_U=None, limit=10**10):
     previous_u = N**2
 
     learning_rate = 0.1
-    LR = tf.placeholder(tf.float64, shape=[])
-    opt = tf.train.AdamOptimizer(learning_rate=LR).minimize(U)
+    LR = tf.compat.v1.placeholder(tf.float64, shape=[])
+    opt = tf.compat.v1.train.AdamOptimizer(learning_rate=LR).minimize(U)
     
-    with tf.Session() as sess:
-        init = tf.global_variables_initializer()
+    with tf.compat.v1.Session() as sess:
+        init = tf.compat.v1.global_variables_initializer()
         sess.run(init)
 
-        print " iteration / N / U_current / delta / learning rate"
+        print(" iteration / N / U_current / delta / learning rate")
 
-        for n in xrange(limit):
+        for n in range(limit):
             for _ in range(100):
                 sess.run(opt, feed_dict={LR:learning_rate})
 
@@ -81,9 +83,9 @@ def minimize_thompson(N, reported_U=None, limit=10**10):
             msg = "  {} {} {:0.14f} {:0.14f} {:0.10f}"
 
             if reported_U is None:
-                print msg.format(n, N, u, delta_u, learning_rate)
+                print(msg.format(n, N, u, delta_u, learning_rate))
             else:
-                print msg.format(n, N, u-reported_U, delta_u, learning_rate)
+                print(msg.format(n, N, u-reported_U, delta_u, learning_rate))
             
             if np.isclose(delta_u,0,atol=1e-16):
                 break
@@ -107,17 +109,18 @@ with h5py.File(f_h5,'r+') as h5:
     df = pd.read_csv("data/wikipedia.csv").set_index("N")    
 
     for N in range(2, 4000):
-        #if N==78: continue
+        
+        if N > 20: continue
 
-        if str(N) not in h5.keys():
+        if str(N) not in list(h5.keys()):
             h5.create_group(str(N))
 
         g = h5[str(N)]
 
-        if 'coordinates' in g.keys():
+        if 'coordinates' in list(g.keys()):
 
             if N not in df.index:
-                print "Already solved for", N
+                print("Already solved for", N)
                 continue
 
             wiki_u = df.ix[N].U_min
@@ -128,19 +131,19 @@ with h5py.File(f_h5,'r+') as h5:
                 delta_u = (model_u - wiki_u)
 
                 if delta_u < 0 or not FLAG_TRY_TO_MATCH_KNOWN:
-                    print "Current energy is lower than known", N, delta_u
+                    print("Current energy is lower than known", N, delta_u)
                     break
 
                 if np.isclose(delta_u,0):
-                    print "Current energy is close to known", N
+                    print("Current energy is close to known", N)
                     break
 
-                print "Energies between known", wiki_u, model_u
+                print("Energies between known", wiki_u, model_u)
             
                 u, c = minimize_thompson(N, wiki_u, limit=500)
 
                 dipole_strength = np.linalg.norm(c.sum(axis=0))
-                print "Final energy", u, dipole_strength
+                print("Final energy", u, dipole_strength)
                 g.attrs['energy'] = u
 
                 del g['coordinates']
