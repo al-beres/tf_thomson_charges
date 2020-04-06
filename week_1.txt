@@ -1,0 +1,16 @@
+First week was dedicated to learning about the problem and getting our first script running.
+
+We created our first script derivated from a public project that runs Adam optimizer over TensorFlow. This framework has the advantage of facilitating the use of GPU
+	- Set up a collaborative environment on GitHub
+	- Install packages and convert old scripts to newer Python 3 and TensorFlow 2
+	- Fix bugs and run code
+	- Learn about the script
+	
+The program is able to generate N points at optimal positions in the 3 dimension sphere (S3). The objective function is the square of the XXXX. There is no treatment of local minima (CHECK).
+
+Next steps
+	- flexibilize the objective functions to 1/|x-y|^alpha. In particular the project intended objective is alpha = 1
+	- flexibilize the number of dimensions
+	- study possible contributions such as
+		- the treatment of local minima
+		- comparison of other optimizers against Adam
