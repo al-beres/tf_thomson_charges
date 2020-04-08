@@ -9,7 +9,6 @@ import numpy as np
 import numpy.linalg as la
 import matplotlib.pyplot as pl
 from mpl_toolkits.mplot3d import Axes3D
-import time
 import tensorflow as tf
 
 #tf.compat.v1.disable_eager_execution()
@@ -72,6 +71,8 @@ print('\nfinal energy {:1.4f}'.format(energy.numpy()))
 opt_points = [v.numpy() for v in vertices]
 
 
+# Show
+
 fig = pl.figure()
 ax = fig.add_subplot(111, projection='3d')
 
@@ -80,9 +81,7 @@ for p in points:
 for p in opt_points:
     ax.scatter(p[0], p[1], p[2], color='red')
 
-
-
-# surface
+# surface to help visualization
 u = np.linspace(0, 2 * np.pi, 200)
 v = np.linspace(0, np.pi, 1000)
 x = 1 * np.outer(np.cos(u), np.sin(v))
@@ -97,10 +96,11 @@ ax.plot_surface(x, y, z,  rstride=4, cstride=4, color='lightgrey', linewidth=0, 
 
 
 
-
+'''
 
 
 # Performance measurements
+import time
 
 print("TensorFlow / Adam / CUDA")
 start = time.time()
@@ -110,7 +110,7 @@ print(end - start)
 
 
 
-'''
+
 @tf.function
 def tf_vertices_and_edges(points):
     N = len(points)
