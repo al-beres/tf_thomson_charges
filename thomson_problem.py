@@ -74,19 +74,31 @@ def min_energy_tf_gradients(vertices, minimization_steps, print_at_each = 0):
         if print_at_each != 0:
             if (step + 1) % print_at_each == 0:
                 print('step {:4d}   energy {:1.4f}'.format(step + 1, energy.numpy()))
-v1 = x1
-v2 = x2
-M = 1.2
+#v1 = x1
+#v2 = x2
+#M = 1.2
 
 # gradient to be applied to v, relative to u
 #@tf.function
-def gradient(v, u):
+def wrong_gradient(v, u):
     d = u - v
     m = la.norm(d)
     if np.isclose(m, 0.):
         return v - v        # zero vector for simplicity
     else:
         return d / (m ** 3)
+
+def gradient(v, u):
+    dif = u - v
+    x1 = dif[0]
+    x2 = dif[1]
+    return 2. * np.array([x1 / (x1 * x1 + x2 * x2) ** 2, x2 / (x1 * x1 + x2 * x2) ** 2])
+
+def gradient(v, u):
+    dif = u - v
+    return dif * 2. / la.norm(dif) ** 4
+
+
 
 #@tf.function
 def group_gradient(points):
@@ -118,12 +130,19 @@ _x2 = x2 - g2
 _x2 = _x2 / la.norm(_x2)
 
 G = gradient(_x1, _x2)
-g1 = G
-g2 = -G
-__x1 = _x1 - g1
+_g1 = G
+_g2 = -G
+__x1 = _x1 - _g1
 __x1 = __x1 / la.norm(__x1)
-__x2 = _x2 - g2
+__x2 = _x2 - _g2
 __x2 = __x2 / la.norm(__x2)
+
+G = gradient(_x1, _x2)
+__g1 = G
+__g2 = -G
+
+print('distance between points {:1.2f}'.format(la.norm(x1 - x2)))
+print('gradient norm {:1.2f}'.format(la.norm(g1)))
 
 circle = Circle((0., 0.), radius = 1., fill = False)
 fig = pl.figure()
@@ -137,8 +156,12 @@ ax.arrow(x1[0], x1[1], g1[0], g1[1])
 ax.arrow(x2[0], x2[1], g2[0], g2[1])
 ax.scatter(_x1[0], _x1[1], marker='^', color='blue')
 ax.scatter(_x2[0], _x2[1], marker='^', color='red')
+ax.arrow(_x1[0], _x1[1], _g1[0], _g1[1])
+ax.arrow(_x2[0], _x2[1], _g2[0], _g2[1])
 ax.scatter(__x1[0], __x1[1], marker='s', color='blue')
 ax.scatter(__x2[0], __x2[1], marker='s', color='red')
+ax.arrow(__x1[0], __x1[1], __g1[0], __g1[1])
+ax.arrow(__x2[0], __x2[1], __g2[0], __g2[1])
 
 
 # pure numpy experiment in 2D
@@ -189,6 +212,7 @@ show(_p, color='red', dim = 2)
 
 d = 3
 n = 20
+alpha = 2.
 #M = 2. * np.pi / n
 
 points = []
@@ -200,8 +224,9 @@ for i in range(n):
 vertices = [tf.Variable(p) for p in points]
 opt = tf.keras.optimizers.Adam(learning_rate=0.001)
 
-minimization_steps = 1000
-print_at_each = 100
+minimization_steps = 200
+print_at_each = 10
+E = []
 
 print('\nprocess start')
 print('#points = {:4d}'.format(n))
@@ -216,17 +241,20 @@ for step in range(minimization_steps):
                 edges.append(tf.subtract(vertices[i], vertices[j]))
         energy = tf.math.add_n([1. / tf.math.reduce_sum(tf.math.abs(e) ** alpha) for e in edges])
     
-    gradients = t.gradient(energy, vertices)
-    #gradients = group_gradient(vertices)
+    #gradients = t.gradient(energy, vertices)
+    gradients = group_gradient(vertices)
     opt.apply_gradients(zip(gradients, vertices))
     vertices = [tf.Variable(v / la.norm(v.numpy())) for v in vertices]
 
+    e = energy.numpy()
+    E.append(e)
     if print_at_each != 0:
         if (step + 1) % print_at_each == 0:
-            print('step {:4d}   energy {:1.4f}'.format(step + 1, energy.numpy()))
+            print('step {:4d}   energy {:1.4f}'.format(step + 1, e))
+
 print('final energy {:1.4f}'.format(energy.numpy()))
 end_time = time.time()
-print('execution time {:8.2f} sec'.format(end_time - start_time))
+print('execution time {:8.0f} sec'.format(end_time - start_time))
 
 opt_points = [v.numpy() for v in vertices]
 
@@ -234,7 +262,19 @@ opt_points = [v.numpy() for v in vertices]
 # Show
 
 fig = pl.figure()
-ax = fig.add_subplot(111, projection='3d')
+pl.plot(E)
+
+
+_E = E.copy()
+
+pl.plot(E)
+pl.plot(_E)
+
+
+ax = fig.add_subplot(211, projection='3d')
+ax.plot(E)
+
+ax = fig.add_subplot(212, projection='3d')
 
 for p in points:
     ax.scatter(p[0], p[1], p[2], color='blue')
@@ -250,7 +290,7 @@ z = 1 * np.outer(np.ones(np.size(u)), np.cos(v))
 elev = 10.0
 rot = 80.0 / 180 * np.pi
 ax.plot_surface(x, y, z,  rstride=4, cstride=4, color='lightgrey', linewidth=0, alpha=0.5)
-
+pl.show()
 
 
 
