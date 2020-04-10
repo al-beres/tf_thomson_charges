@@ -83,8 +83,21 @@ M = 1.2
 def gradient(v, u):
     d = u - v
     m = la.norm(d)
-    return d / (m ** 3)
+    if np.isclose(m, 0.):
+        return v - v        # zero vector for simplicity
+    else:
+        return d / (m ** 3)
 
+#@tf.function
+def group_gradient(points):
+    grads = []
+    for i, p in enumerate(points):
+        g = p - p           # zero vector
+        for j, q in enumerate(points):
+            if i != j:
+                g = g + gradient(p, q)
+        grads.append(g)
+    return grads
 
 # testing gradient
     
@@ -173,6 +186,17 @@ show(points, color='blue', dim = 2)
 show(_p, color='red', dim = 2)
 
 
+
+d = 3
+n = 20
+#M = 2. * np.pi / n
+
+points = []
+for i in range(n):
+    p = np.random.normal(size = d)
+    p = p / la.norm(p)
+    points.append(p)
+
 vertices = [tf.Variable(p) for p in points]
 opt = tf.keras.optimizers.Adam(learning_rate=0.001)
 
@@ -180,10 +204,26 @@ minimization_steps = 1000
 print_at_each = 100
 
 print('\nprocess start')
-print('# points = {:4d}'.format(n))
-print('# steps  = {:4d}'.format(minimization_steps))
+print('#points = {:4d}'.format(n))
+print('#steps  = {:4d}'.format(minimization_steps))
 start_time = time.time()
-min_energy_tf_gradients(vertices, minimization_steps, print_at_each)
+for step in range(minimization_steps):
+    with tf.GradientTape() as t:
+        edges = []
+        N = len(points)
+        for i in range(N):
+            for j in range(i + 1, N):
+                edges.append(tf.subtract(vertices[i], vertices[j]))
+        energy = tf.math.add_n([1. / tf.math.reduce_sum(tf.math.abs(e) ** alpha) for e in edges])
+    
+    gradients = t.gradient(energy, vertices)
+    #gradients = group_gradient(vertices)
+    opt.apply_gradients(zip(gradients, vertices))
+    vertices = [tf.Variable(v / la.norm(v.numpy())) for v in vertices]
+
+    if print_at_each != 0:
+        if (step + 1) % print_at_each == 0:
+            print('step {:4d}   energy {:1.4f}'.format(step + 1, energy.numpy()))
 print('final energy {:1.4f}'.format(energy.numpy()))
 end_time = time.time()
 print('execution time {:8.2f} sec'.format(end_time - start_time))
