@@ -27,7 +27,7 @@ def initial_set(n, d):
         points.append(p)
     return points
 
-# 3d plot
+# 2d or 3d plot
 def show(points, color = 'blue', dim = 3):
     if dim == 3:
         fig = pl.figure()
@@ -44,63 +44,15 @@ def show(points, color = 'blue', dim = 3):
             ax.scatter(p[0], p[1], color=color)
 
 
-# Main script
+# Gradient
 
-d = 3
-n = 10
-alpha = 3.
-
-points = initial_set(n, d)
-show(points, 'blue')
-
-
-# TensorFlow 2.1 environmnent
-
-@tf.function
-def min_energy_tf_gradients(vertices, minimization_steps, print_at_each = 0):
-    for step in range(minimization_steps):
-        with tf.GradientTape() as t:
-            edges = []
-            N = len(points)
-            for i in range(N):
-                for j in range(i + 1, N):
-                    edges.append(tf.subtract(vertices[i], vertices[j]))
-            energy = tf.math.add_n([1. / tf.math.reduce_sum(tf.math.abs(e) ** alpha) for e in edges])
-        
-        gradients = t.gradient(energy, vertices)
-        opt.apply_gradients(zip(gradients, vertices))
-        vertices = [tf.Variable(v / la.norm(v.numpy())) for v in vertices]
-    
-        if print_at_each != 0:
-            if (step + 1) % print_at_each == 0:
-                print('step {:4d}   energy {:1.4f}'.format(step + 1, energy.numpy()))
-#v1 = x1
-#v2 = x2
-#M = 1.2
-
-# gradient to be applied to v, relative to u
-#@tf.function
-def wrong_gradient(v, u):
-    d = u - v
-    m = la.norm(d)
-    if np.isclose(m, 0.):
-        return v - v        # zero vector for simplicity
-    else:
-        return d / (m ** 3)
-
-def gradient(v, u):
-    dif = u - v
-    x1 = dif[0]
-    x2 = dif[1]
-    return 2. * np.array([x1 / (x1 * x1 + x2 * x2) ** 2, x2 / (x1 * x1 + x2 * x2) ** 2])
-
+# to be applied to v, relative to u
+# to do: convert to TensorFlow function
+           
 def gradient(v, u):
     dif = u - v
     return dif * 2. / la.norm(dif) ** 4
 
-
-
-#@tf.function
 def group_gradient(points):
     grads = []
     for i, p in enumerate(points):
@@ -111,7 +63,8 @@ def group_gradient(points):
         grads.append(g)
     return grads
 
-# testing gradient
+
+# Testing gradient function
     
 p = np.random.normal(size = 2)
 p = p / la.norm(p)
@@ -164,51 +117,7 @@ ax.arrow(__x1[0], __x1[1], __g1[0], __g1[1])
 ax.arrow(__x2[0], __x2[1], __g2[0], __g2[1])
 
 
-# pure numpy experiment in 2D
-
-d = 2
-n = 30
-#M = 2. * np.pi / n
-
-points = []
-for i in range(n):
-    p = np.random.normal(size = d)
-    p = p / la.norm(p)
-    points.append(p)
-
-
-n_steps = 1000
-mu = .01
-_p = points.copy()
-for step in range(n_steps):
-    for i in range(len(points)):
-        g = 0.
-        for j in range(len(points)):
-            if i != j:
-                g = g + gradient(_p[i], _p[j])
-        pi = _p[i] - mu * g
-        pi = pi / la.norm(pi)
-        _p[i] = pi
-            
-
-
-circle = Circle((0., 0.), radius = 1., fill = False)
-fig = pl.figure()
-ax = fig.add_subplot(111)
-ax.add_patch(circle)
-ax.axis('equal')
-for e, p in enumerate(points):
-    ax.scatter(p[0], p[1], color='blue')
-    ax.annotate(e, (p[0], p[1]))
-for e, p in enumerate(_p):
-    ax.scatter(p[0], p[1], color='red', marker='^')
-    ax.annotate(e, (p[0], p[1]))
-        
-        
-show(points, color='blue', dim = 2)
-show(_p, color='red', dim = 2)
-
-
+# Random points in 3D - initial set
 
 d = 3
 n = 20
@@ -220,6 +129,13 @@ for i in range(n):
     p = np.random.normal(size = d)
     p = p / la.norm(p)
     points.append(p)
+
+energy_decay = []
+
+
+# Optimization
+
+# --- central loop ---
 
 vertices = [tf.Variable(p) for p in points]
 opt = tf.keras.optimizers.Adam(learning_rate=0.001)
@@ -241,8 +157,8 @@ for step in range(minimization_steps):
                 edges.append(tf.subtract(vertices[i], vertices[j]))
         energy = tf.math.add_n([1. / tf.math.reduce_sum(tf.math.abs(e) ** alpha) for e in edges])
     
-    #gradients = t.gradient(energy, vertices)
-    gradients = group_gradient(vertices)
+    #gradients = t.gradient(energy, vertices)    # <-- choose TensorFlow gradients
+    gradients = group_gradient(vertices)        # <-- choose own gradients
     opt.apply_gradients(zip(gradients, vertices))
     vertices = [tf.Variable(v / la.norm(v.numpy())) for v in vertices]
 
@@ -256,25 +172,23 @@ print('final energy {:1.4f}'.format(energy.numpy()))
 end_time = time.time()
 print('execution time {:8.0f} sec'.format(end_time - start_time))
 
+energy_decay.append(E)
+
+# --- end of central loop ---
+
+
+# Show energy decay
+
+for E in energy_decay:
+    pl.plot(E)
+
+
+# Show sphere with random and optimized points
+
 opt_points = [v.numpy() for v in vertices]
 
-
-# Show
-
 fig = pl.figure()
-pl.plot(E)
-
-
-_E = E.copy()
-
-pl.plot(E)
-pl.plot(_E)
-
-
-ax = fig.add_subplot(211, projection='3d')
-ax.plot(E)
-
-ax = fig.add_subplot(212, projection='3d')
+ax = fig.add_subplot(111, projection='3d')
 
 for p in points:
     ax.scatter(p[0], p[1], p[2], color='blue')
@@ -291,68 +205,3 @@ elev = 10.0
 rot = 80.0 / 180 * np.pi
 ax.plot_surface(x, y, z,  rstride=4, cstride=4, color='lightgrey', linewidth=0, alpha=0.5)
 pl.show()
-
-
-
-
-
-'''
-
-
-# Performance measurements
-import time
-
-print("TensorFlow / Adam / CUDA")
-start = time.time()
-opt_points = tf_optimize_adam(points)
-end = time.time()
-print(end - start)
-
-
-
-
-@tf.function
-def tf_vertices_and_edges(points):
-    N = len(points)
-    vertices = tf.Variable(points, name='points')
-    edges = []
-    #for i in range(N):
-    #    for j in range(i + 1, N):
-    #        edges.append(tf.math.subtract(vertices[i], vertices[j]))
-    return vertices, edges
-    
-
-@tf.function
-def tf_vertices_and_energy(points, alpha = 2.):
-    N = len(points)
-    vertices = [tf.Variable(p) for p in points]
-    edges = []
-    for i in range(N):
-        for j in range(i + 1, N):
-            edges.append(tf.math.subtract(vertices[i], vertices[j]))
-    energy = tf.math.add_n([1. / tf.math.reduce_sum(tf.math.abs(e) ** alpha) for e in edges])
-    return vertices, energy
-
-@tf.function
-def minimize_energy():
-    
-
-@tf.function
-def energy():
-    #return tf_energy
-    return tf.math.add_n([1. / tf.math.reduce_sum(tf.math.abs(e) ** alpha) for e in edges])
-
-
-
-with tf.GradientTape() as t:
-    energy = tf.math.add_n([1. / tf.math.reduce_sum(tf.math.abs(e) ** alpha) for e in edges])
-
-    #### Option 1
-    
-    # Is the tape that computes the gradients!
-    gradients = t.gradient(energy, vertices)
-    # The optimize applies the update, using the variables
-    # and the optimizer update rule
-    opt.apply_gradients(zip(gradients, vertices))
-    
-'''
