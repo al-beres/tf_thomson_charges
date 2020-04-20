@@ -292,6 +292,7 @@ from cvxopt import solvers, matrix
 # S_k minimizes energy conditional on sum(s in S_k)[ sum(t in S_k+1)[|<s,t>|] ] = constant
 # S_k is normalized
 # check https://cvxopt.org/userguide/solvers.html#s-cp
+from numpy import array
 def iterate_S(S):
     C = len(S) + .000001
     def F(x=None, z=None):
@@ -299,8 +300,10 @@ def iterate_S(S):
             return 1, matrix(S)     # 1 constraint, x0 = previous set
         if np.outer(S, x).sum().sum() > C:
             return None
+        
+        _x = array(x)[:,0]  # converting to numpy
         f = np.array([serial_total_energy(x), np.outer(S, x).sum().sum()]).T
-        Df = [serial_gradient(x)]
+        Df = [serial_gradient(_x)]
         # gradient of constraint
         d = [np.sum([S[i] for i in range(len(S)) if i % 3 == 0]),
              np.sum([S[i] for i in range(len(S)) if i % 3 == 1]),
@@ -308,14 +311,25 @@ def iterate_S(S):
         D = np.repeat(d, int(len(S) / 3))
         D = D * np.sign(S)
         Df.append(D)
-        Df = matrix(np.array(Df))
+        Df = np.array(Df)
+        Df = matrix(Df)     # back to cvxopt type
+        
         if z is None: return f, Df
-        H = [serial_hessian(S)]
-    solvers.cp(F)
+        H = matrix(serial_hessian(S))
+        
+        print(f)
+        print(Df)
+        return f, Df, H
+    S_next = solvers.cp(F)
+    
+    # normalize S_next
+    # ...
+    
+    return S_next
 
 
 # The idea is to iterate in a loop
-while # ...
+while False # ...
     S = iterate(S)
 
 
