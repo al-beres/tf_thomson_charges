@@ -287,8 +287,36 @@ def serial_normalized_total_energy(serial_points):
 
 
 # Convex optimization
-    
+from cvxopt import solvers, matrix
+# generates S_k+1 from S_k
+# S_k minimizes energy conditional on sum(s in S_k)[ sum(t in S_k+1)[|<s,t>|] ] = constant
+# S_k is normalized
+# check https://cvxopt.org/userguide/solvers.html#s-cp
+def iterate_S(S):
+    C = len(S) + .000001
+    def F(x=None, z=None):
+        if x is None:
+            return 1, matrix(S)     # 1 constraint, x0 = previous set
+        if np.outer(S, x).sum().sum() > C:
+            return None
+        f = np.array([serial_total_energy(x), np.outer(S, x).sum().sum()]).T
+        Df = [serial_gradient(x)]
+        # gradient of constraint
+        d = [np.sum([S[i] for i in range(len(S)) if i % 3 == 0]),
+             np.sum([S[i] for i in range(len(S)) if i % 3 == 1]),
+             np.sum([S[i] for i in range(len(S)) if i % 3 == 2])]
+        D = np.repeat(d, int(len(S) / 3))
+        D = D * np.sign(S)
+        Df.append(D)
+        Df = matrix(np.array(Df))
+        if z is None: return f, Df
+        H = [serial_hessian(S)]
+    solvers.cp(F)
 
+
+# The idea is to iterate in a loop
+while # ...
+    S = iterate(S)
 
 
 # Checking gradients
@@ -375,7 +403,8 @@ serial_points = serialize(points)
 g = serial_gradient(serial_points, True)
 h = serial_hessian(serial_points, True)
 
-
+'trust-ncg'     # Newton conjugate gradient
+'trust-krylov'  # Krylov
 _points = points.copy()
 minimize(normalized_total_energy, _points, method='trust-ncg', jac=total_gradient, hess=group_hessian)
 minimize(normalized_total_energy, _points, method='trust-ncg', jac=total_gradient, hess=group_hessian)
